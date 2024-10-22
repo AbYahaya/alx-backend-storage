@@ -1,0 +1,2 @@
+//Find and list collection with name ="Holbeeton school"
+db.school.find({name : "Holberton school"}).forEach(printjson);
