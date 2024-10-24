@@ -1,29 +1,47 @@
 #!/usr/bin/env python3
 """
-This module defines a Cache class that interacts with a Redis database.
-The Cache class stores data with randomly generated keys.
+This module defines a Cache class that interacts with Redis
+and provides functionality to count method calls using decorators.
 """
 
 import redis
-from typing import Union
 import uuid
+from typing import Union, Callable, Optional
+from functools import wraps
+
+
+def count_calls(method: Callable) -> Callable:
+    """
+    Decorator that counts the number of times a method is called.  
+    The count is stored in Redis with the method's qual name (__qualname__)
+    as the key.
+    """
+
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        """Wrapper function that increments the call count in Redis."""
+        # Increment the count for the method's qualified name
+        key = method.__qualname__
+        self._redis.incr(key)
+        return method(self, *args, **kwargs)
+
+    return wrapper
 
 
 class Cache:
     """
-    Cache class for storing data in Redis.
-    The class provides methods to store, retrieve, and convert data from Redis
+    Cache class for storing data in Redis and counting method calls.
     """
 
     def __init__(self) -> None:
         """
         Initialize the Redis client and flush the database.
-
         The Redis client is stored as a private instance variable `_redis`.
         """
         self._redis = redis.Redis()
         self._redis.flushdb()
 
+    @count_calls
     def store(self, data: Union[str, bytes, int, float]) -> str:
         """
         Store the data in Redis with a randomly generated key.
@@ -46,11 +64,12 @@ class Cache:
 
         Args:
             key (str): The key to retrieve the data for.
-            fn (Callable, optional): A function to apply to the retrieved
-                Defaults to None.
+            fn (Callable, optional): A function to apply to the retrieved data
+                                     Defaults to None.
 
         Returns:
-            Union[str, bytes, int, float, None]: The retrieved data
+            Union[str, bytes, int, float, None]: The retrieved data after app
+                                                 the function or None.
         """
         value = self._redis.get(key)
         if value is None:
